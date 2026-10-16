@@ -32,8 +32,8 @@ def main(argv=None):
     parser.add_argument(
         "--fps",
         type=positive_number,
-        default=30.0,
-        help="maximum GUI refresh rate (default: 30)",
+        default=15.0,
+        help="maximum GUI refresh rate (default: 15)",
     )
     parser.add_argument(
         "--paused",
