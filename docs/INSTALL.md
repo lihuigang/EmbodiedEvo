@@ -44,6 +44,8 @@ Open the interactive MuJoCo window from the repository root:
 
 Close the window to stop the simulator. Use `--camera free` for the movable 3D view,
 or run `./scripts/view_mujoco_so101.sh --check` to verify scene loading without a window.
+The viewer caps rendering at 30 FPS by default. On a laptop, use `--fps 15` to reduce
+rendering load or `--fps 15 --paused` for the lowest-power static inspection mode.
 
 MuJoCo 3.3.7 and `mujoco-menagerie==2026.9.0` are pinned by the `mujoco` extra.
 The model cache is external runtime material and is not committed. Override its

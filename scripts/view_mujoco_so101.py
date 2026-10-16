@@ -7,10 +7,10 @@ import json
 import time
 
 
-def positive_float(value):
+def positive_number(value):
     number = float(value)
     if number <= 0:
-        raise argparse.ArgumentTypeError("speed must be greater than zero")
+        raise argparse.ArgumentTypeError("value must be greater than zero")
     return number
 
 
@@ -25,9 +25,25 @@ def main(argv=None):
     )
     parser.add_argument(
         "--speed",
-        type=positive_float,
+        type=positive_number,
         default=1.0,
         help="simulation speed multiplier (default: 1)",
+    )
+    parser.add_argument(
+        "--fps",
+        type=positive_number,
+        default=30.0,
+        help="maximum GUI refresh rate (default: 30)",
+    )
+    parser.add_argument(
+        "--paused",
+        action="store_true",
+        help="show a static scene without advancing physics",
+    )
+    parser.add_argument(
+        "--duration",
+        type=positive_number,
+        help="close automatically after this many seconds",
     )
     parser.add_argument(
         "--check",
@@ -71,12 +87,24 @@ def main(argv=None):
                 )
                 viewer.cam.type = env.mujoco.mjtCamera.mjCAMERA_FIXED
                 viewer.cam.fixedcamid = camera_id
+            frame_interval = 1.0 / args.fps
+            simulation_target = env.data.time
+            deadline = time.monotonic() + args.duration if args.duration else None
+            print(
+                f"Viewer running: camera={args.camera}, fps={args.fps:g}, "
+                f"paused={args.paused}. Close the window to stop.",
+                flush=True,
+            )
             while viewer.is_running():
                 started = time.monotonic()
-                env.mujoco.mj_step(env.model, env.data)
+                if deadline is not None and started >= deadline:
+                    break
+                if not args.paused:
+                    simulation_target += frame_interval * args.speed
+                    while env.data.time < simulation_target:
+                        env.mujoco.mj_step(env.model, env.data)
                 viewer.sync()
-                interval = env.model.opt.timestep / args.speed
-                time.sleep(max(0.0, interval - (time.monotonic() - started)))
+                time.sleep(max(0.0, frame_interval - (time.monotonic() - started)))
     finally:
         env.close()
     return 0
