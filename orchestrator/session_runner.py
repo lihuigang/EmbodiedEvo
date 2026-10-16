@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import os
 import select
 import shutil
@@ -21,16 +21,18 @@ from orchestrator.files import (
     codex_token_usage,
     hashes,
     run_lock,
-    test_seeds,
     shared_test_seeds,
     test_scene_records,
+    test_seeds,
     valid_test_seeds,
     write_json,
 )
+from orchestrator.live import simulator_command, simulator_env, validate_viewer
 from orchestrator.replay import run_replay
-from orchestrator.resources import GpuSlots, gpu_lease, sim_env
+from orchestrator.resources import GpuSlots, gpu_lease
 from orchestrator.scoring import aggregate as aggregate_scores
 from orchestrator.scoring import result_score
+from orchestrator.transport import create_tcp_listener, docker_transport_args
 
 
 def validate(cfg):
@@ -178,6 +180,7 @@ def agent_command(cfg, run, socket_dir, phase):
         "EMBODIEDEVO_SOCKET=/run/embodiedevo/session.sock",
         "--mount",
         f"type=bind,src={socket_dir},dst=/run/embodiedevo,readonly",
+        *docker_transport_args(socket_dir),
     ]
     fixed = ["instruction.md", "primitives", "scripts", "observations"]
     if phase == "test" and not cfg.baseline:
@@ -222,8 +225,11 @@ def run_episode(
     gpu=None,
     harness=None,
     submission=None,
+    viewer=False,
+    viewer_fps=15,
 ):
     """Monitor processes and pipe events, never workspace semaphore files."""
+    validate_viewer(cfg, viewer, viewer_fps)
     protocol_path = experiment / "protocol.json"
     protocol = json.loads(protocol_path.read_text()) if protocol_path.exists() else {}
     profile_path = os.environ.get("EMBODIEDEVO_ROBODOJO_RUNTIME_PROFILE")
@@ -282,6 +288,8 @@ def run_episode(
         "env_task": cfg.simulator.env_task,
         "gpu": str(gpu) if gpu is not None else os.environ.get("CUDA_VISIBLE_DEVICES"),
         "supervisor_pid": os.getpid(),
+        "viewer": viewer,
+        "viewer_fps": viewer_fps if viewer else None,
     }
 
     def save_runtime(**updates):
@@ -336,10 +344,7 @@ def run_episode(
         startup_deadline = time.monotonic() + float(
             os.environ.get("EMBODIEDEVO_SIMULATOR_STARTUP_TIMEOUT", "1200"))
         agent_deadline = None
-        command = [
-            str(cfg.python),
-            "-m",
-            "orchestrator.session",
+        command = simulator_command(cfg, viewer=viewer, fps=viewer_fps) + [
             "--config",
             str(run / "episode-config.json"),
             "--run-dir",
@@ -361,17 +366,29 @@ def run_episode(
             "--ready-fd",
             str(write_fd),
         ]
+        tcp_listener = None
         try:
+            tcp_listener = create_tcp_listener(cfg, socket_dir)
+            inherited_fds = (write_fd,)
+            if tcp_listener is not None:
+                command += [
+                    "--tcp-fd", str(tcp_listener.fileno()),
+                    "--token-file", str(socket_dir / "transport-token"),
+                ]
+                inherited_fds += (tcp_listener.fileno(),)
+                save_runtime(transport="authenticated-tcp")
             container, argv = agent_command(cfg, run, socket_dir, phase)
-            simulator = subprocess.Popen(
-                command,
-                cwd=CODE_ROOT,
-                env=sim_env(gpu, cfg.simulator.backend),
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                pass_fds=(write_fd,),
-                start_new_session=True,
-            )
+            # Host diagnostics, never mounted in the agent workspace.
+            with (run / "simulator.log").open("w") as log:
+                simulator = subprocess.Popen(
+                    command,
+                    cwd=CODE_ROOT,
+                    env=simulator_env(gpu, cfg.simulator.backend, viewer=viewer),
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    pass_fds=inherited_fds,
+                    start_new_session=True,
+                )
             simulator_started_wall = time.time()
             simulator_started_mono = time.monotonic()
             save_runtime(status="simulator_starting", simulator_pid=simulator.pid)
@@ -511,6 +528,8 @@ def run_episode(
         except Exception as exc:
             failure = f"launch_failed: {exc}"
         finally:
+            if tcp_listener is not None:
+                tcp_listener.close()
             if container:
                 try:
                     subprocess.run(
@@ -623,8 +642,9 @@ def check_run(cfg, run):
     return state
 
 
-def explore(cfg, run_dir, *, gpu=None, timeout_sec=None):
+def explore(cfg, run_dir, *, gpu=None, timeout_sec=None, viewer=False, viewer_fps=15):
     validate(cfg)
+    validate_viewer(cfg, viewer, viewer_fps)
     if cfg.baseline:
         raise ValueError("Baseline has no Playground; use test or run to start Test directly")
     run = Path(run_dir).resolve()
@@ -652,6 +672,8 @@ def explore(cfg, run_dir, *, gpu=None, timeout_sec=None):
             seed=cfg.playground.seed,
             seconds=seconds,
             gpu=gpu,
+            viewer=viewer,
+            viewer_fps=viewer_fps,
         )
         check_run(cfg, run)
         # Task success is independent of protocol validity. A normal policy
@@ -845,7 +867,8 @@ def scene_result(scene, identity):
     return {"valid": False, "task_completed": False, "failure": "interrupted_scene"}
 
 
-def test(cfg, run_dir, *, gpu=None, test_gpus=None, gpu_slots=1):
+def test(cfg, run_dir, *, gpu=None, test_gpus=None, gpu_slots=1, viewer=False, viewer_fps=15):
+    validate_viewer(cfg, viewer, viewer_fps, test_gpus=test_gpus)
     # Scheduling is host metadata, not a change to the pinned task or seed plan.
     slots = GpuSlots(test_gpus or [gpu], gpu_slots) if test_gpus is not None else None
     run = Path(run_dir).resolve()
@@ -879,6 +902,8 @@ def test(cfg, run_dir, *, gpu=None, test_gpus=None, gpu_slots=1):
                 seconds=cfg.test.generation_timeout_sec,
                 gpu=selected_gpu,
                 harness=frozen,
+                viewer=viewer,
+                viewer_fps=viewer_fps,
             )
             return index, result
 

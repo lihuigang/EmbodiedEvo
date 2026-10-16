@@ -22,14 +22,26 @@ def receive(stream):
 
 
 def request(payload):
-    address = os.environ.get("EMBODIEDEVO_SOCKET")
-    if not address:
-        raise RuntimeError("EMBODIEDEVO_SOCKET is not set")
-    data = json.dumps(payload, ensure_ascii=True).encode() + b"\n"
-    if len(data) > MAX_MESSAGE:
-        raise ValueError("Session message exceeds 16 MiB")
-    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
-        connection.connect(address)
+    host = os.environ.get("EMBODIEDEVO_TCP_HOST")
+    if host:
+        token = Path(os.environ["EMBODIEDEVO_TOKEN_FILE"]).read_text().strip()
+        payload = {"token": token, "request": payload}
+        connection = socket.create_connection((host, int(os.environ["EMBODIEDEVO_TCP_PORT"])), 10)
+        connection.settimeout(None)
+    else:
+        address = os.environ.get("EMBODIEDEVO_SOCKET")
+        if not address:
+            raise RuntimeError("EMBODIEDEVO_SOCKET is not set")
+        connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            connection.connect(address)
+        except BaseException:
+            connection.close()
+            raise
+    with connection:
+        data = json.dumps(payload, ensure_ascii=True).encode() + b"\n"
+        if len(data) > MAX_MESSAGE:
+            raise ValueError("Session message exceeds 16 MiB")
         with connection.makefile("rwb") as stream:
             stream.write(data)
             stream.flush()

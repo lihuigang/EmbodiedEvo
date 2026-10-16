@@ -16,6 +16,7 @@ from pathlib import Path
 
 from orchestrator import session_runner
 from orchestrator.config import load_task
+from orchestrator.live import validate_viewer
 
 
 def _common(parser: argparse.ArgumentParser) -> None:
@@ -24,6 +25,10 @@ def _common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--gpu", default=None, help="CUDA_VISIBLE_DEVICES for the simulator")
     parser.add_argument("--env-task", help="native task name; overrides [simulator].env_task")
     parser.add_argument("--test-scenes", type=int, help="override Test scene count for this run")
+    parser.add_argument("--viewer", action="store_true", help="watch live SO-101 Agent actions")
+    parser.add_argument(
+        "--viewer-fps", type=float, default=15, help="GUI refresh cap (default: 15)"
+    )
     parser.add_argument(
         "--test-gpus",
         help="comma-separated physical GPUs for concurrent Test scenes",
@@ -67,6 +72,10 @@ def main(argv: list[str] | None = None) -> int:
             ap.error("--test-gpu-slots requires --gpu or --test-gpus")
         test_gpus = [args.gpu]
     cfg = load_task(args.task, env_task=args.env_task)
+    try:
+        validate_viewer(cfg, args.viewer, args.viewer_fps, test_gpus=test_gpus)
+    except ValueError as exc:
+        ap.error(str(exc))
     if args.test_scenes is not None:
         if args.test_scenes <= 0:
             ap.error("--test-scenes must be positive")
@@ -75,7 +84,8 @@ def main(argv: list[str] | None = None) -> int:
         ap.error("Baseline has no Playground; use test or run")
     if args.command != "test" and not cfg.baseline:
         rc = session_runner.explore(
-            cfg, args.run_dir, gpu=args.gpu, timeout_sec=args.timeout_sec
+            cfg, args.run_dir, gpu=args.gpu, timeout_sec=args.timeout_sec,
+            viewer=args.viewer, viewer_fps=args.viewer_fps,
         )
         if rc or args.command == "explore":
             return rc
@@ -85,6 +95,8 @@ def main(argv: list[str] | None = None) -> int:
         gpu=args.gpu,
         test_gpus=test_gpus,
         gpu_slots=args.test_gpu_slots,
+        viewer=args.viewer,
+        viewer_fps=args.viewer_fps,
     )
 
 

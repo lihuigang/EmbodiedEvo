@@ -24,7 +24,12 @@ for option in \
     build_args+=(--build-arg "${option%%:*}=${!variable}")
   fi
 done
-docker build --tag "$image" "${build_args[@]}" "$repo_root/docker/agent"
+if [[ ${#build_args[@]} -gt 0 ]]; then
+  docker build --tag "$image" "${build_args[@]}" "$repo_root/docker/agent"
+else
+  # macOS ships Bash 3.2, where an empty array is unbound under set -u.
+  docker build --tag "$image" "$repo_root/docker/agent"
+fi
 docker run --rm --network none "$image" codex --version
 docker run --rm --network none "$image" python -c \
   'import numpy, PIL, imageio; print("Agent Python/image dependencies OK; no model request sent.")'

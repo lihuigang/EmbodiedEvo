@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 import xml.etree.ElementTree as ET
 
 import numpy as np
@@ -136,6 +137,7 @@ class MuJoCoSO101Task(CodeTask):
         self._failure = None
         self._success_frames = 0
         self._renderers = {}
+        self._live_viewer = None
         self._task_prompt = "Pick up the red cube and place it stably on the green target pad."
         self._joint_ids = np.array(
             [self._name_id(self.mujoco.mjtObj.mjOBJ_JOINT, name) for name in ARM_JOINTS]
@@ -193,6 +195,8 @@ class MuJoCoSO101Task(CodeTask):
         try:
             self._reset_native(seed)
             obs = self._native_observation()
+            if self._live_viewer is not None:
+                self._live_viewer.sync(force=True)
             return self.start_episode(seed, obs, reset_options=options)
         except Exception as exc:
             self._failure = exc
@@ -339,6 +343,7 @@ class MuJoCoSO101Task(CodeTask):
     def control_step(self, action):
         if self.done:
             return self.transition(float(self.success))
+        started = time.monotonic()
         # Validation errors are policy mistakes, not simulator failures.  Keep the
         # native session usable so the agent can correct a malformed command.
         self._apply_action(action)
@@ -349,6 +354,8 @@ class MuJoCoSO101Task(CodeTask):
             self._update_success()
             self.truncated = not self.success and self.control_steps >= self.max_steps
             self.observe(self._native_observation())
+            if getattr(self, "_live_viewer", None) is not None:
+                self._live_viewer.after_action(started)
             return self.transition(float(self.success))
         except Exception as exc:
             self._failure = exc
@@ -363,6 +370,9 @@ class MuJoCoSO101Task(CodeTask):
         return result
 
     def close(self):
+        if self._live_viewer is not None:
+            self._live_viewer.close()
+            self._live_viewer = None
         for renderer in self._renderers.values():
             renderer.close()
         self._renderers.clear()

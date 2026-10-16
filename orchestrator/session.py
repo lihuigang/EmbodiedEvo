@@ -18,6 +18,7 @@ from orchestrator.config import SESSION_PROTOCOL, config_from_dict
 from orchestrator.files import append_jsonl, capture_writable_changes, write_json
 from orchestrator.scoring import capture as capture_scoring
 from orchestrator.session_client import receive, send
+from orchestrator.transport import authenticate
 from simulators.observations import export_observation
 from simulators.video import write_videos
 
@@ -323,7 +324,8 @@ class Session:
             self.event({"event": "idle"})
 
 
-def serve(cfg, run, socket_path, *, phase, seed, budget, seconds, execution_seconds, ready_fd):
+def serve(cfg, run, socket_path, *, phase, seed, budget, seconds, execution_seconds, ready_fd,
+          viewer=False, viewer_fps=15, tcp_fd=None, token_file=None):
     from simulators.backend import build
 
     def event(value):
@@ -331,6 +333,11 @@ def serve(cfg, run, socket_path, *, phase, seed, budget, seconds, execution_seco
 
     env = None
     try:
+        token = None
+        if tcp_fd is not None:
+            token = Path(token_file).read_text(encoding="utf-8").strip()
+            if len(token) < 32:
+                raise ValueError("Session transport requires a random authentication token")
         env = build(cfg, seed=seed)
         session = Session(
             env,
@@ -343,13 +350,27 @@ def serve(cfg, run, socket_path, *, phase, seed, budget, seconds, execution_seco
             fps=cfg.feedback_fps,
             event=event,
         )
-        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
-            listener.bind(str(socket_path))
-            os.chmod(socket_path, 0o600)
-            listener.listen(8)
-            listener.settimeout(0.5)
+        if viewer:
+            if cfg.simulator.backend != "mujoco_so101":
+                raise ValueError("Live viewer requires the mujoco_so101 backend")
+            from simulators.live_viewer import LiveViewer
+
+            env._live_viewer = LiveViewer(env, fps=viewer_fps)
+            write_json(Path(run) / "viewer.json", {
+                "enabled": True, "fps": viewer_fps, "camera": "top_cam",
+                "read_only": True, "pid": os.getpid(),
+            })
+        with (socket.socket(fileno=tcp_fd) if tcp_fd is not None else
+              socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)) as listener:
+            if tcp_fd is None:
+                listener.bind(str(socket_path))
+                os.chmod(socket_path, 0o600)
+                listener.listen(8)
+            listener.settimeout(min(0.5, 1.0 / viewer_fps) if viewer else 0.5)
             event({"event": "ready"})
             while not session.closed:
+                if viewer:
+                    env._live_viewer.sync()
                 try:
                     connection, _ = listener.accept()
                 except TimeoutError:
@@ -367,14 +388,16 @@ def serve(cfg, run, socket_path, *, phase, seed, budget, seconds, execution_seco
                     with connection.makefile("rwb") as stream:
                         request = None
                         try:
-                            request = receive(stream)
+                            envelope = receive(stream)
+                            request = authenticate(envelope, token) if token else envelope
                             response = session.handle(request)
                         except (ValueError, PermissionError, ConnectionError, OSError) as exc:
                             response = {
                                 "ok": False,
                                 "error": str(exc),
-                                **{"status": session.status()},
                             }
+                            if not token or request is not None:
+                                response["status"] = session.status()
                         except ExecutionTimeout as exc:
                             response = {"ok": False, "error": str(exc), "status": session.status()}
                         if request is not None:
@@ -410,6 +433,10 @@ def main(argv=None):
     parser.add_argument("--seconds", type=float, default=None)
     parser.add_argument("--execution-seconds", type=float, required=True)
     parser.add_argument("--ready-fd", type=int, required=True)
+    parser.add_argument("--viewer", action="store_true")
+    parser.add_argument("--viewer-fps", type=float, default=15)
+    parser.add_argument("--tcp-fd", type=int)
+    parser.add_argument("--token-file", type=Path)
     args = parser.parse_args(argv)
     cfg = config_from_dict(json.loads(args.config.read_text()))
     return serve(
@@ -422,6 +449,10 @@ def main(argv=None):
         seconds=args.seconds,
         execution_seconds=args.execution_seconds,
         ready_fd=args.ready_fd,
+        viewer=args.viewer,
+        viewer_fps=args.viewer_fps,
+        tcp_fd=args.tcp_fd,
+        token_file=args.token_file,
     )
 
 

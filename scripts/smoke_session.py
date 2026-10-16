@@ -85,6 +85,8 @@ def main(argv=None):
     parser.add_argument("--env-task")
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--gpu", required=True)
+    parser.add_argument("--viewer", action="store_true", help="watch the live protocol diagnostic")
+    parser.add_argument("--viewer-fps", type=float, default=15)
     parser.add_argument(
         "--phase", choices=["playground", "test"],
         help="defaults to Test for baselines, Playground for regular tasks",
@@ -137,6 +139,16 @@ def main(argv=None):
             f"os.environ['EMBODIEDEVO_SOCKET'] = {str(socket_dir / 'session.sock')!r}\n"
             "os.environ['EMBODIEDEVO_SMOKE_HOST_CLIENT'] = '1'\n"
         )
+        transport = socket_dir / "transport.json"
+        if transport.exists():
+            import json
+
+            port = json.loads(transport.read_text())["port"]
+            bootstrap += (
+                "os.environ['EMBODIEDEVO_TCP_HOST'] = '127.0.0.1'\n"
+                f"os.environ['EMBODIEDEVO_TCP_PORT'] = {str(port)!r}\n"
+                f"os.environ['EMBODIEDEVO_TOKEN_FILE'] = {str(socket_dir / 'transport-token')!r}\n"
+            )
         return None, [sys.executable, "-c", bootstrap + client]
 
     with (
@@ -154,6 +166,8 @@ def main(argv=None):
             seed=seed,
             seconds=600,
             gpu=args.gpu,
+            viewer=args.viewer,
+            viewer_fps=args.viewer_fps,
         )
     from orchestrator.files import write_json
 
