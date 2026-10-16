@@ -47,6 +47,15 @@ or run `./scripts/view_mujoco_so101.sh --check` to verify scene loading without 
 The viewer caps rendering at 15 FPS by default. Use `--fps 30` when smoother rendering
 is needed, or `--paused` for the lowest-power static inspection mode.
 
+Run the complete five-position pick-and-place demonstration in the live top camera:
+
+```bash
+./scripts/demo_mujoco_so101_pick_place.sh --seeds 11 12 13 14 15
+```
+
+The demo sends the same Cartesian IK and normalized gripper actions used by the agent
+interface, runs each scene in real time, and prints the result of every seeded episode.
+
 MuJoCo 3.3.7 and `mujoco-menagerie==2026.9.0` are pinned by the `mujoco` extra.
 The model cache is external runtime material and is not committed. Override its
 location with `MENAGERIE_CACHE_DIR` before both provisioning and execution. Linux
