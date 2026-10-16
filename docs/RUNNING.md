@@ -1,4 +1,4 @@
-# Running RoboDojo
+# Running EmbodiedEvo backends
 
 Complete [installation](INSTALL.md) and [Codex API configuration](CODEX_API.md),
 then run from the repository root. Use an
@@ -27,6 +27,23 @@ subset run is not a full benchmark evaluation.
 The default templates explicitly select a model and reasoning effort; use values
 supported by your provider. No provider URL or key is included. Model credentials
 remain in an external CLI home.
+
+## SO-101 MuJoCo
+
+After preparing `.venv-mujoco`, run the seeded pick-and-place task without a GPU flag:
+
+```bash
+RUN_DIR="runs/$(date +%Y%m%d%H%M)_so101_pick_cube"
+.venv/bin/embodiedevo run --task SO101MuJoCo --run-dir "$RUN_DIR"
+
+.venv/bin/embodiedevo test --task tasks_baseline/SO101MuJoCo \
+  --run-dir "runs/$(date +%Y%m%d%H%M)_so101_pick_cube_baseline"
+```
+
+The regular and baseline templates each select ten Test seeds. Compare the exact same
+seed plan when reporting transfer effects; report success rate, native actions, execution
+requests, wall time and model usage, and retain every failed scene. A smoke result proves
+the integration and task mechanics only, not agent performance or sim-to-real transfer.
 
 ## Native official evaluator
 

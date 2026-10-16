@@ -46,7 +46,7 @@ call("exec")
 status = call("status")
 p.write_text(
     "obs = get_observation()\\n"
-    "step({k: v for k, v in obs['state'].items() if k.endswith('joint_state')})\n"
+    "step({k: v for k, v in obs['state'].items() if k.endswith('joint_state')})\\n"
 )
 action = call("exec")
 assert action["native_steps_used"] > status["native_steps_used"]
@@ -122,8 +122,16 @@ def main(argv=None):
         return path
 
     def host_command(cfg, episode, socket_dir, phase):
+        error_log = episode / "host-client-error.log"
         bootstrap = (
             "import os\n"
+            "import sys\n"
+            "import traceback\n"
+            f"error_log = {str(error_log)!r}\n"
+            "def report_error(kind, value, tb):\n"
+            "    with open(error_log, 'w', encoding='utf-8') as stream:\n"
+            "        stream.write(''.join(traceback.format_exception(kind, value, tb)))\n"
+            "sys.excepthook = report_error\n"
             f"os.chdir({str(episode / 'workspace')!r})\n"
             f"os.environ['EMBODIEDEVO_WORKSPACE'] = {str(episode / 'workspace')!r}\n"
             f"os.environ['EMBODIEDEVO_SOCKET'] = {str(socket_dir / 'session.sock')!r}\n"

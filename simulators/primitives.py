@@ -7,6 +7,7 @@ from gymnasium import spaces
 
 PROGRAM_PRIMITIVES = frozenset({"get_instruction", "get_observation", "step", "reset"})
 SURFACES = {
+    "mujoco_so101": "MuJoCoSO101LowLevelApi",
     "robodojo": "RoboDojoLowLevelApi",
 }
 
@@ -34,6 +35,10 @@ class PrimitiveApi:
 
 
 def load_surface(backend: str):
+    if backend == "mujoco_so101":
+        from simulators.mujoco_so101_api import MuJoCoSO101LowLevelApi
+
+        return MuJoCoSO101LowLevelApi
     if backend == "robodojo":
         from simulators.robodojo_api import RoboDojoLowLevelApi
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import fcntl
 import os
+import sys
 import time
 from collections.abc import Iterator
 from pathlib import Path
@@ -19,8 +20,9 @@ def sim_env(gpu: str | None, backend: str | None = None) -> dict[str, str]:
 
     require_allowed("local")
     env = os.environ.copy()
-    env["MUJOCO_GL"] = "egl"
-    env["PYOPENGL_PLATFORM"] = "egl"
+    if backend == "robodojo" or (backend == "mujoco_so101" and sys.platform.startswith("linux")):
+        env.setdefault("MUJOCO_GL", "egl")
+        env.setdefault("PYOPENGL_PLATFORM", "egl")
     # Prevent native BLAS/OpenMP pools from multiplying across the simulator,
     # API workers and the agent. Oversubscription makes EGL aborts much more
     # likely when several campaigns are active on one host.

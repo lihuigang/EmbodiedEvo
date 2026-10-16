@@ -1,0 +1,33 @@
+[task]
+protocol = "workspace-session-v1"
+name = "embodiedevo/so101-mujoco-baseline"
+baseline = true
+description = "Solve seeded SO-101 MuJoCo pick-and-place scenes without transferred knowledge."
+
+[workspace]
+source = "Workspace"
+
+[simulator]
+backend = "mujoco_so101"
+interpreter = ".venv-mujoco"
+api_surface = "MuJoCoSO101LowLevelApi"
+env_task = "pick_cube"
+
+[agent]
+preset = "codex"
+model = "gpt-6-astra"
+reasoning_effort = "xhigh"
+timeout_sec = 0
+isolation = "docker"
+image = "embodiedevo-agent:latest"
+network = "filtered"
+cpus = 4
+memory_mb = 8192
+
+[test]
+scenes = 10
+budget = 100
+generation_timeout_sec = 0
+submission_timeout_sec = 1200
+feedback_fps = 20
+expose_success_feedback = true

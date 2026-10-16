@@ -22,6 +22,25 @@ performance.
 validation (Python 3.12.7 on Linux). Keep those pins out of the simulator's
 environment, which follows its own upstream dependency constraints.
 
+## SO-101 MuJoCo runtime
+
+The SO-101 backend has a separate, CPU-capable simulator environment. The helper
+installs pinned MuJoCo bindings and MuJoCo Menagerie, then prefetches only the
+`robotstudio_so101` model into the ignored `vendor/mujoco-menagerie-cache/` directory:
+
+```bash
+bash scripts/prepare_mujoco_so101.sh
+.venv-mujoco/bin/python -m scripts.smoke_mujoco_so101 \
+  --run-dir "runs/$(date +%Y%m%d%H%M)_so101_native_smoke"
+```
+
+MuJoCo 3.3.7 and `mujoco-menagerie==2026.9.0` are pinned by the `mujoco` extra.
+The model cache is external runtime material and is not committed. Override its
+location with `MENAGERIE_CACHE_DIR` before both provisioning and execution. Linux
+headless execution defaults to EGL; on macOS the native MuJoCo renderer is used.
+The smoke runs real physics, both RGB cameras, joint and XYZ-IK actions, deterministic
+reset, Test reset rejection, and a physical pick-and-place without Docker or a model call.
+
 ### Updating an existing installation
 
 The project package and CLI are now `embodiedevo`, environment variables use

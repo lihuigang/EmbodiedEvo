@@ -14,6 +14,7 @@ dependencies = ["gymnasium>=1.0", "numpy", "pillow", "pyyaml", "imageio[ffmpeg]"
 
 [project.optional-dependencies]
 dev = ["ruff>=0.4"]
+mujoco = ["mujoco==3.3.7", "mujoco-menagerie==2026.9.0"]
 policy = ["websockets==15.0.1"]
 
 [project.scripts]

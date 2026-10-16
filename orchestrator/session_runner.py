@@ -35,6 +35,7 @@ from orchestrator.scoring import result_score
 
 def validate(cfg):
     if cfg.protocol != SESSION_PROTOCOL or cfg.simulator.backend not in {
+        "mujoco_so101",
         "robodojo",
     }:
         raise ValueError("Workspace sessions require a supported native simulator task")

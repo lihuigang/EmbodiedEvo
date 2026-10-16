@@ -23,7 +23,11 @@ def build(cfg: TaskConfig, *, seed: int | None = None) -> Environment:
     expected = SURFACES[backend]
     if cfg.simulator.api_surface != expected:
         raise ValueError(f"This task requires the primitive surface {expected}")
-    if backend == "robodojo":
+    if backend == "mujoco_so101":
+        from simulators.mujoco_so101 import MuJoCoSO101Task
+
+        environment = MuJoCoSO101Task(task_name=cfg.simulator.env_task, seed=seed)
+    elif backend == "robodojo":
         from simulators.robodojo import RoboDojoTask
 
         environment = RoboDojoTask(

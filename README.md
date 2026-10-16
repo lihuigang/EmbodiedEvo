@@ -15,7 +15,7 @@
 
 **Observe, revise code, and act. Learn Skills and Lessons from physical feedback.**
 
-EmbodiedEvo connects a coding agent's workspace to a persistent RoboDojo simulation
+EmbodiedEvo connects a coding agent's workspace to a persistent robot simulation
 session. The agent inspects observations, edits Python control code, executes it,
 and uses the resulting physical feedback to guide its next revision. Its evolving
 knowledge lives in reusable code and written lessons in the workspace.
@@ -63,6 +63,11 @@ assets, an available NVIDIA GPU, Docker, and configured model credentials.
 Follow [installation](docs/INSTALL.md), including
 [Codex API configuration](docs/CODEX_API.md), before starting an experiment.
 
+The optional SO-101 backend runs the same protocol on MuJoCo without Isaac Sim or
+an NVIDIA GPU. It uses the pinned Apache-2.0 `robotstudio_so101` model from MuJoCo
+Menagerie and supplies a seeded cube-to-target task; see
+[installation](docs/INSTALL.md#so-101-mujoco-runtime).
+
 ## Playground and Test
 
 After setup, choose a native task with `--env-task`. The model and reasoning
@@ -83,6 +88,13 @@ RUN_DIR="runs/$(date +%Y%m%d%H%M)_stack_bowls"
   --run-dir "runs/$(date +%Y%m%d%H%M)_stack_bowls_baseline" --gpu 0
 ```
 
+SO-101 MuJoCo uses the same commands without `--gpu`:
+
+```bash
+RUN_DIR="runs/$(date +%Y%m%d%H%M)_so101_pick_cube"
+.venv/bin/embodiedevo run --task SO101MuJoCo --run-dir "$RUN_DIR"
+```
+
 The baseline starts with its own instruction and no transferred Skills/Lessons.
 Public task recipes are enabled by default for both configurations, matching the
 source snapshot. Set `EMBODIEDEVO_USE_RECIPE=0` before preparing a new run to omit
@@ -94,10 +106,10 @@ See [the protocol](docs/PROTOCOL.md) and [running and evaluation](docs/RUNNING.m
 | Path | Role |
 | --- | --- |
 | `orchestrator/` | Task configuration, isolated agents, sessions, freeze and Test lifecycle |
-| `environments/`, `simulators/` | Python execution, four primitives and RoboDojo adaptation |
+| `environments/`, `simulators/` | Python execution, four primitives and simulator adapters |
 | `integrations/robodojo_policy/` | XPolicyLab policy and native evaluation transport |
-| `tasks/RoboDojo/` | Playground/Test templates, primitive manual and public recipes |
-| `tasks_baseline/RoboDojo/` | Fresh Test-only baseline |
+| `tasks/RoboDojo/`, `tasks/SO101MuJoCo/` | Backend-specific Playground/Test templates and primitive manuals |
+| `tasks_baseline/` | Fresh Test-only baselines |
 | `docker/agent/`, `scripts/` | Thin agent image, provisioning and diagnostics |
 | `tests/` | CPU tests; optional transport tests require a provisioned XPolicyLab |
 
