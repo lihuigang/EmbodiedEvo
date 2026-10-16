@@ -114,7 +114,13 @@ def main(argv=None):
             parser.error("Regular task smoke uses only its configured Playground seed")
         seed = cfg.playground.seed
     client = f"BASELINE = {cfg.baseline!r}\n" + CLIENT
-    cfg = replace(cfg, agent=replace(cfg.agent, network="none"))
+    # A Linux container needs a bridge to reach the macOS host's TCP session.
+    # This still runs only the fixed diagnostic client, never a model.
+    network = (
+        "filtered" if sys.platform == "darwin" and cfg.simulator.backend == "mujoco_so101"
+        and not args.host_client else "none"
+    )
+    cfg = replace(cfg, agent=replace(cfg.agent, network=network))
     run = args.run_dir.resolve()
     run.mkdir(parents=True, exist_ok=False)
     prepare_inputs(cfg, run)

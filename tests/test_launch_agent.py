@@ -96,7 +96,9 @@ class LaunchModelTests(unittest.TestCase):
                 self.assertIn('model_reasoning_effort="xhigh"', inner)
                 self.assertNotIn('model="gpt-5.6-sol"', inner)
                 self.assertIn("EMBODIEDEVO_SOCKET=/run/embodiedevo/session.sock", argv)
-                self.assertIn(f"type=bind,src={root / 'socket'},dst=/run/embodiedevo,readonly", argv)
+                self.assertIn(
+                    f"type=bind,src={root / 'socket'},dst=/run/embodiedevo,readonly", argv
+                )
                 for component in ("instruction.md", "primitives", "scripts", "observations"):
                     self.assertIn(
                         f"type=bind,src={root / 'workspace' / component},"
@@ -182,6 +184,10 @@ class DockerPreflightTests(unittest.TestCase):
                     "HTTPS_PROXY=http://host-private:1234" in argv,
                     not explicit and network != "none",
                 )
+                self.assertEqual(
+                    "https_proxy=http://172.18.0.1:17890" in argv,
+                    explicit and network != "none",
+                )
                 self.assertNotIn("--gpus", argv)
 
     def test_http_proxy_is_used_when_https_proxy_is_unset(self):
@@ -192,6 +198,8 @@ class DockerPreflightTests(unittest.TestCase):
             )
         self.assertIn("HTTPS_PROXY=http://host-proxy:8888", argv)
         self.assertIn("HTTP_PROXY=http://host-proxy:8888", argv)
+        self.assertIn("http_proxy=http://host-proxy:8888", argv)
+        self.assertIn("https_proxy=http://host-proxy:8888", argv)
 
     def test_empty_server_version_is_a_daemon_failure_even_with_zero_exit(self):
         import subprocess

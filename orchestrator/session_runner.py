@@ -9,6 +9,7 @@ import select
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -298,7 +299,15 @@ def run_episode(
         write_json(runtime_path, runtime)
 
     save_runtime(status="starting", started_at=stage_started_wall)
-    with tempfile.TemporaryDirectory(prefix="embodiedevo-session-") as temporary, gpu_lease(gpu):
+    runtime_root = os.environ.get("EMBODIEDEVO_RUNTIME_DIR")
+    if runtime_root is None and sys.platform == "darwin":
+        # Colima shares the user directory, not Darwin's /var/folders tempdir.
+        runtime_root = Path.home() / ".cache" / "embodiedevo" / "runtime"
+    if runtime_root is not None:
+        Path(runtime_root).mkdir(mode=0o700, parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(
+        prefix="embodiedevo-session-", dir=runtime_root
+    ) as temporary, gpu_lease(gpu):
         socket_dir = Path(temporary)
         # Coverage workers may place temporary agent homes on the shared
         # filesystem so a full host /tmp cannot stop a campaign.  Docker's
@@ -409,13 +418,14 @@ def run_episode(
                             simulator_ready_wall = time.time()
                             simulator_ready_mono = time.monotonic()
                             agent_deadline = None if seconds is None else time.monotonic() + seconds
-                            agent = subprocess.Popen(
-                                argv,
-                                cwd=REPO,
-                                stdout=subprocess.DEVNULL,
-                                stderr=subprocess.DEVNULL,
-                                start_new_session=True,
-                            )
+                            with (run / "agent.log").open("w") as log:
+                                agent = subprocess.Popen(
+                                    argv,
+                                    cwd=REPO,
+                                    stdout=log,
+                                    stderr=subprocess.STDOUT,
+                                    start_new_session=True,
+                                )
                             agent_started_wall = time.time()
                             agent_started_mono = time.monotonic()
                             last_agent_progress = agent_started_mono
@@ -463,11 +473,12 @@ def run_episode(
                     # Wait for the host's idle event before reconnecting.
                     if now >= recovery_due and action_deadline is None:
                         mirror_agent_session()
-                        agent = subprocess.Popen(
-                            resume_argv(argv, recovery_id), cwd=REPO,
-                            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                            stderr=subprocess.DEVNULL, start_new_session=True,
-                        )
+                        with (run / "agent.log").open("a") as log:
+                            agent = subprocess.Popen(
+                                resume_argv(argv, recovery_id), cwd=REPO,
+                                stdin=subprocess.DEVNULL, stdout=log,
+                                stderr=subprocess.STDOUT, start_new_session=True,
+                            )
                         last_agent_progress = now
                         recovery_due = None
                         save_runtime(status="running", agent_pid=agent.pid,

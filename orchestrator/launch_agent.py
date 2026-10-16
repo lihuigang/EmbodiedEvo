@@ -74,7 +74,10 @@ def docker_argv(
         proxy_args = [
             "--env", f"HTTPS_PROXY={proxy}",
             "--env", f"HTTP_PROXY={proxy}",
+            "--env", f"https_proxy={proxy}",
+            "--env", f"http_proxy={proxy}",
             "--env", "NO_PROXY=localhost,127.0.0.1,::1",
+            "--env", "no_proxy=localhost,127.0.0.1,::1",
         ]
     return [
         "docker",

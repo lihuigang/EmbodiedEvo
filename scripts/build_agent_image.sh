@@ -11,6 +11,8 @@ build_args=()
 if [[ -n "${EMBODIEDEVO_BUILD_HTTP_PROXY:-}" ]]; then
   build_args+=(--build-arg "HTTP_PROXY=$EMBODIEDEVO_BUILD_HTTP_PROXY")
   build_args+=(--build-arg "HTTPS_PROXY=$EMBODIEDEVO_BUILD_HTTP_PROXY")
+  build_args+=(--build-arg "http_proxy=$EMBODIEDEVO_BUILD_HTTP_PROXY")
+  build_args+=(--build-arg "https_proxy=$EMBODIEDEVO_BUILD_HTTP_PROXY")
 fi
 for option in \
   BASE_IMAGE:EMBODIEDEVO_AGENT_BASE_IMAGE \

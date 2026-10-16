@@ -86,6 +86,12 @@ The token stays outside the run archive and is removed with the temporary sessio
 directory. Requests are authenticated before execution and credentials are excluded
 from ledgers. The container reaches the host at `host.lima.internal` for Colima or
 `host.docker.internal` for Docker Desktop; override `EMBODIEDEVO_AGENT_HOST` if needed.
+Some Colima bridges do not resolve `host.lima.internal` inside containers. In that
+case, set `EMBODIEDEVO_AGENT_HOST` to the address returned by
+`colima ssh -- getent hosts host.lima.internal`. If API access requires a local proxy,
+set `EMBODIEDEVO_AGENT_HTTPS_PROXY` to a proxy address reachable from the container,
+not the container's own loopback. The launcher overrides both upper- and lowercase
+proxy variables so Docker client defaults cannot silently select a different proxy.
 The listener binds host interfaces to reach the VM; use a trusted local network.
 Linux sessions retain Unix socket transport.
 
