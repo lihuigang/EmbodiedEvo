@@ -58,6 +58,7 @@ def main(argv=None):
 
         env.execution_phase = "playground"
         env.reset_from_program()
+        assert env.max_steps - env.control_steps == env.native_step_limit
         reset_cube = env.data.qpos[env._cube_qpos : env._cube_qpos + 3]
         assert np.allclose(reset_cube, settled_cube, atol=1e-9)
         env.execution_phase = "test"
@@ -92,6 +93,7 @@ def main(argv=None):
             joint_action_checked=True,
             ik_action_checked=True,
             deterministic_reset_checked=True,
+            playground_reset_budget_checked=True,
             test_reset_rejected=True,
             physical_pick_and_place_checked=True,
             native_action_limit=env.native_step_limit,

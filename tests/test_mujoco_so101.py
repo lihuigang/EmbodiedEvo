@@ -90,6 +90,34 @@ class InterfaceTests(unittest.TestCase):
         self.assertEqual(env.control_steps, 0)
         env.mujoco.mj_step.assert_not_called()
 
+    def test_playground_reset_renews_attempt_preserving_cumulative_actions_and_globals(self):
+        env = MuJoCoSO101Task.__new__(MuJoCoSO101Task)
+        env.initialize(MuJoCoSO101LowLevelApi(env))
+        env.scene_seed = 7
+        env.native_step_limit = env.max_steps = 300
+        env._live_viewer = None
+        env._reset_native = Mock()
+        env._native_observation = Mock(return_value={"instruction": "task", "state": {}})
+        env.execution_phase = "playground"
+        env.reset(seed=7)
+        env.control_steps = 300
+        env.truncated = True
+        env._exec_globals["remember"] = 17
+        env.reset_from_program()
+        self.assertEqual(env.max_steps - env.control_steps, 300)
+        self.assertEqual(env.control_steps, 300)
+        self.assertEqual(env._exec_globals["remember"], 17)
+        self.assertFalse(env.done)
+        env.control_steps += 25
+        env.reset_from_program()
+        self.assertEqual(env.max_steps - env.control_steps, 300)
+        self.assertEqual(env.control_steps, 325)
+        env.execution_phase = "test"
+        env._reset_native.reset_mock()
+        with self.assertRaises(PermissionError):
+            env.reset_from_program()
+        env._reset_native.assert_not_called()
+
 
 class ConfigurationTests(unittest.TestCase):
     def test_regular_and_baseline_task_definitions_prepare(self):

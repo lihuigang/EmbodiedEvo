@@ -194,6 +194,11 @@ class MuJoCoSO101Task(CodeTask):
             )
         try:
             self._reset_native(seed)
+            # Playground keeps cumulative action telemetry/Python variables, but
+            # every same-scene reset must renew the native attempt allowance.
+            self.max_steps = self.native_step_limit + (
+                self.control_steps if self._restoring_scene else 0
+            )
             obs = self._native_observation()
             if self._live_viewer is not None:
                 self._live_viewer.sync(force=True)
