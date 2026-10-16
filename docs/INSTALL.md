@@ -34,6 +34,17 @@ bash scripts/prepare_mujoco_so101.sh
   --run-dir "runs/$(date +%Y%m%d%H%M)_so101_native_smoke"
 ```
 
+Open the interactive MuJoCo window from the repository root:
+
+```bash
+./scripts/view_mujoco_so101.sh
+./scripts/view_mujoco_so101.sh --camera top_cam --seed 0
+./scripts/view_mujoco_so101.sh --camera wrist_cam --seed 0
+```
+
+Close the window to stop the simulator. Use `--camera free` for the movable 3D view,
+or run `./scripts/view_mujoco_so101.sh --check` to verify scene loading without a window.
+
 MuJoCo 3.3.7 and `mujoco-menagerie==2026.9.0` are pinned by the `mujoco` extra.
 The model cache is external runtime material and is not committed. Override its
 location with `MENAGERIE_CACHE_DIR` before both provisioning and execution. Linux
